@@ -25,9 +25,7 @@ from .graph import GraphStore, edge_to_dict, node_to_dict
 logger = logging.getLogger(__name__)
 
 
-def _build_name_index(
-    nodes: list[dict], seen_qn: set[str]
-) -> dict[str, list[str]]:
+def _build_name_index(nodes: list[dict], seen_qn: set[str]) -> dict[str, list[str]]:
     """Build a mapping from short/module-style names to qualified names.
 
     Returns ``{short_name: [qualified_name, ...]}``.
@@ -142,6 +140,7 @@ def export_graph_data(store: GraphStore) -> dict:
     # Include flows (graceful fallback if table doesn't exist)
     try:
         from code_review_graph.flows import get_flows
+
         flows = get_flows(store, limit=100)
     except (ImportError, sqlite3.OperationalError) as exc:
         logger.debug("flows unavailable for export: %s", exc)
@@ -150,6 +149,7 @@ def export_graph_data(store: GraphStore) -> dict:
     # Include communities (graceful fallback if table doesn't exist)
     try:
         from code_review_graph.communities import get_communities
+
         communities = get_communities(store)
     except (ImportError, sqlite3.OperationalError) as exc:
         logger.debug("communities unavailable for export: %s", exc)
@@ -216,19 +216,21 @@ def _aggregate_community(data: dict) -> dict:
         size = info.get("size", len(info.get("members", [])))
         if size == 0:
             continue
-        super_nodes.append({
-            "qualified_name": f"__community__{cid}",
-            "name": info.get("name", f"Community {cid}"),
-            "kind": "Community",
-            "file_path": "",
-            "line_start": None,
-            "line_end": None,
-            "language": info.get("dominant_language", ""),
-            "community_id": cid,
-            "member_count": size,
-            "description": info.get("description", ""),
-            "id": cid,
-        })
+        super_nodes.append(
+            {
+                "qualified_name": f"__community__{cid}",
+                "name": info.get("name", f"Community {cid}"),
+                "kind": "Community",
+                "file_path": "",
+                "line_start": None,
+                "line_end": None,
+                "language": info.get("dominant_language", ""),
+                "community_id": cid,
+                "member_count": size,
+                "description": info.get("description", ""),
+                "id": cid,
+            }
+        )
 
     # Build super-edges: aggregate cross-community edges
     cross_edge_counts: Counter[tuple[int, int]] = Counter()
@@ -241,12 +243,14 @@ def _aggregate_community(data: dict) -> dict:
 
     super_edges = []
     for (c1, c2), count in cross_edge_counts.items():
-        super_edges.append({
-            "source": f"__community__{c1}",
-            "target": f"__community__{c2}",
-            "kind": "CROSS_COMMUNITY",
-            "weight": count,
-        })
+        super_edges.append(
+            {
+                "source": f"__community__{c1}",
+                "target": f"__community__{c2}",
+                "kind": "CROSS_COMMUNITY",
+                "weight": count,
+            }
+        )
 
     # Build per-community detail data for drill-down
     community_details: dict[int, dict] = {}
@@ -257,8 +261,7 @@ def _aggregate_community(data: dict) -> dict:
     for cid, member_qns in cid_members_set.items():
         detail_nodes = [n for n in nodes if n["qualified_name"] in member_qns]
         detail_edges = [
-            e for e in edges
-            if e["source"] in member_qns and e["target"] in member_qns
+            e for e in edges if e["source"] in member_qns and e["target"] in member_qns
         ]
         community_details[cid] = {
             "nodes": detail_nodes,
@@ -272,9 +275,7 @@ def _aggregate_community(data: dict) -> dict:
         "flows": data.get("flows", []),
         "communities": communities,
         "mode": "community",
-        "community_details": {
-            str(k): v for k, v in community_details.items()
-        },
+        "community_details": {str(k): v for k, v in community_details.items()},
     }
 
 
@@ -317,17 +318,19 @@ def _aggregate_file(data: dict) -> dict:
             if n.get("file_path") == fp and n.get("community_id") is not None:
                 cid = n["community_id"]
                 break
-        file_nodes.append({
-            "qualified_name": fp,
-            "name": label,
-            "kind": "File",
-            "file_path": fp,
-            "line_start": None,
-            "line_end": None,
-            "language": file_languages.get(fp, ""),
-            "community_id": cid,
-            "symbol_count": count,
-        })
+        file_nodes.append(
+            {
+                "qualified_name": fp,
+                "name": label,
+                "kind": "File",
+                "file_path": fp,
+                "line_start": None,
+                "line_end": None,
+                "language": file_languages.get(fp, ""),
+                "community_id": cid,
+                "symbol_count": count,
+            }
+        )
 
     # Aggregate cross-file edges
     cross_file_counts: Counter[tuple[str, str]] = Counter()
@@ -340,12 +343,14 @@ def _aggregate_file(data: dict) -> dict:
 
     file_edges = []
     for (f1, f2), count in cross_file_counts.items():
-        file_edges.append({
-            "source": f1,
-            "target": f2,
-            "kind": "DEPENDS_ON",
-            "weight": count,
-        })
+        file_edges.append(
+            {
+                "source": f1,
+                "target": f2,
+                "kind": "DEPENDS_ON",
+                "weight": count,
+            }
+        )
 
     return {
         "nodes": file_nodes,
@@ -380,16 +385,15 @@ def generate_html(
     if stats.total_nodes > 50000:
         logger.warning(
             "Graph has %d nodes — visualization may be slow. "
-            "Consider filtering by file pattern.", stats.total_nodes,
+            "Consider filtering by file pattern.",
+            stats.total_nodes,
         )
     data = export_graph_data(store)
 
     # Determine effective mode
     effective_mode = mode
     if effective_mode == "auto":
-        effective_mode = (
-            "community" if stats.total_nodes > max_full_nodes else "full"
-        )
+        effective_mode = "community" if stats.total_nodes > max_full_nodes else "full"
 
     if effective_mode == "community":
         # Keep full data available for drill-down; aggregate for top-level
@@ -856,7 +860,8 @@ function moveTooltip(ev) {
 }
 function hideTooltip() { tooltip.classList.remove("visible"); }
 var W = innerWidth, H = innerHeight;
-var svg = d3.select("svg").attr("viewBox", [0, 0, W, H]);
+#var svg = d3.select("svg").attr("viewBox", [0, 0, W, H]);
+var svg = d3.select("#graph-svg").attr("viewBox", [0, 0, W, H]);
 var gRoot = svg.append("g");
 var currentTransform = d3.zoomIdentity;
 var zoomBehavior = d3.zoom()
@@ -1756,7 +1761,8 @@ function hideTooltip() { tooltip.classList.remove("visible"); }
 
 /* --- SVG setup --- */
 var W = innerWidth, H = innerHeight;
-var svg = d3.select("svg").attr("viewBox", [0, 0, W, H]);
+#var svg = d3.select("svg").attr("viewBox", [0, 0, W, H]);
+var svg = d3.select("#graph-svg").attr("viewBox", [0, 0, W, H]);
 var gRoot = svg.append("g");
 var currentTransform = d3.zoomIdentity;
 var zoomBehavior = d3.zoom()
